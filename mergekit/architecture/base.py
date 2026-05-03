@@ -4,6 +4,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Tuple
 
+import torch
 from pydantic import BaseModel, Field
 from transformers import PretrainedConfig
 
@@ -151,3 +152,10 @@ class ConfiguredModelArchitecture(BaseModel, frozen=True, arbitrary_types_allowe
             config=self.config,
             weight_prefix=self.info.modules[module_name].weight_prefix,
         )
+
+
+# Rebuild Pydantic models now that all type dependencies (torch, transformers) are loaded.
+# Transformers 5's PretrainedConfig has torch type annotations that Pydantic needs to resolve.
+ConfiguredModuleArchitecture.model_rebuild()
+ConfiguredModelArchitecture.model_rebuild()
+ModuleDefinition.model_rebuild()

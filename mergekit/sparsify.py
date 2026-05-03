@@ -145,13 +145,19 @@ def della_magprune(
         return tensor
     if density <= 0:
         return torch.zeros_like(tensor)
+    
+    # --- SAFETY GUARD START ---
+    # Ensure density isn't exactly 0 or 1
+    density = max(1e-4, min(1.0 - 1e-4, density))
+    
+    # Epsilon must be < density AND < (1 - density)
+    # If the optimizer guessed a bad epsilon, we shrink it to the max allowed value
+    max_epsilon = min(density, 1.0 - density) - 1e-4
+    if abs(epsilon) > max_epsilon:
+        epsilon = max_epsilon if epsilon > 0 else -max_epsilon
+    # --- SAFETY GUARD END ---
+
     orig_shape = tensor.shape
-
-    if density + epsilon >= 1 or density - epsilon <= 0:
-        raise ValueError(
-            "Epsilon must be chosen such that density +/- epsilon is in (0, 1)"
-        )
-
     work_dtype = (
         tensor.dtype
         if tensor.device.type != "cpu" or tensor.dtype == torch.bfloat16
@@ -167,8 +173,15 @@ def della_magprune(
 
     min_ranks = ranks.min(dim=1, keepdim=True).values
     max_ranks = ranks.max(dim=1, keepdim=True).values
-    rank_norm = ((ranks - min_ranks) / (max_ranks - min_ranks)).clamp(0, 1)
+    rank_range = max_ranks - min_ranks
+    # Avoid division by zero when all magnitudes in a row are equal
+    rank_range = rank_range.clamp(min=1e-6)
+    rank_norm = ((ranks - min_ranks) / rank_range).clamp(0, 1)
+
+    # Compute probabilities: guaranteed in [0, 1] after safety guard
     probs = (density - epsilon) + rank_norm * 2 * epsilon
+    # Clamp and replace any NaN with 0.5 (uniform probability)
+    probs = probs.clamp(0, 1).nan_to_num(nan=0.5)
     mask = torch.bernoulli(probs).to(work_dtype)
 
     res = rescaled_masked_tensor(tensor.to(work_dtype), mask, rescale_norm)
