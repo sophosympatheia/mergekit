@@ -18,7 +18,7 @@ dependencies = [
     "accelerate~=1.6.0",
     "pydantic~=2.10.6",
     "immutables==0.21",
-    "transformers>=4.45.2",
+    "transformers>=5.0.0",
     "tokenizers>=0.20.1",
     "huggingface_hub",
     "peft",
@@ -36,7 +36,7 @@ evolve = ["ray", "cma", "lm_eval", "wandb"]
 vllm = ["vllm==0.7.2", "lm_eval[vllm]"]
 
 [project.urls]
-repository = "https://github.com/cg123/mergekit"
+repository = "https://github.com/sophosympatheia/mergekit"
 
 
 [project.scripts]
